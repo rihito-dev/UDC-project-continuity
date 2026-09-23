@@ -396,7 +396,7 @@ def apply_candidates(
                 {
                     "year": str(target.year),
                     "project_name": target.project_name,
-                    "team": target.team,
+                    "team": "",
                     "discovery_source": "",
                     "candidate_url": "",
                     "candidate_type": "",

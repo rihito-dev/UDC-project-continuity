@@ -23,6 +23,7 @@ from urllib.robotparser import RobotFileParser
 
 import requests
 from bs4 import BeautifulSoup, Tag
+from bs4.dammit import UnicodeDammit
 
 
 AWARD_PAGES = {
@@ -579,13 +580,25 @@ class Checker:
             return None, notes
 
     @staticmethod
-    def page_evidence(response: requests.Response) -> tuple[str, str]:
+    def decode_page(response: requests.Response) -> str:
+        # Prefer an explicit HTTP charset, then strict UTF-8, then the page's own
+        # declaration. Statistical guessing comes last because it can misread
+        # UTF-8 Japanese as MacRoman; requests' Latin-1 fallback is never used.
         content_type = response.headers.get("content-type", "")
-        if "html" not in content_type and not response.text.lstrip().startswith("<"):
+        header = requests.utils.get_encoding_from_headers(response.headers) if "charset" in content_type.lower() else None
+        dammit = UnicodeDammit(
+            response.content,
+            known_definite_encodings=[header] if header else [],
+            user_encodings=["utf-8"],
+            is_html=True,
+        )
+        return dammit.unicode_markup or ""
+
+    @staticmethod
+    def page_evidence(html: str, content_type: str) -> tuple[str, str]:
+        if "html" not in content_type and not html.lstrip().startswith("<"):
             return "", ""
-        # Let BeautifulSoup inspect the response bytes and the page's own
-        # charset declaration; this avoids treating legacy pages as Latin-1.
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
         title = clean_text(soup.title.get_text(" ", strip=True)) if soup.title else ""
         body = soup.body or soup
         evidence = clean_text(body.get_text(" ", strip=True))[:200]
@@ -630,7 +643,8 @@ class Checker:
         response, notes = self.request(url, headers={"Accept": "text/html,application/xhtml+xml"})
         if response is None:
             return PageResult(status="unknown", notes=notes)
-        title, evidence = self.page_evidence(response)
+        html = self.decode_page(response)
+        title, evidence = self.page_evidence(html, response.headers.get("content-type", ""))
         final_url = response.url
         initial_host = self.domain_key(urlparse(url).netloc)
         final_host = self.domain_key(urlparse(final_url).netloc)
@@ -648,13 +662,13 @@ class Checker:
                 retry = self.session.get(url, timeout=25, allow_redirects=True)
                 if 500 <= retry.status_code <= 599:
                     notes.append("5xx observed twice")
-                    return PageResult("dead", str(retry.status_code), title, evidence, retry.url, notes)
+                    return PageResult("unreachable", str(retry.status_code), title, evidence, retry.url, notes)
                 notes.append(f"retry status={retry.status_code}; not treated as constant 5xx")
             except requests.RequestException as exc:
                 notes.append(f"5xx retry error={type(exc).__name__}")
             return PageResult("unknown", str(response.status_code), title, evidence, final_url, notes)
         if response.status_code == 200:
-            related = self.related(project_name, title, evidence, response.text[:200000])
+            related = self.related(project_name, title, evidence, html[:200000])
             if related:
                 notes.append("project-name relatedness found in title/body")
                 return PageResult("reachable_related", "200", title, evidence, final_url, notes)

@@ -1,5 +1,7 @@
 # UDC Project Continuity Study
 
+[![check](https://github.com/rihito-dev/UDC-project-continuity/actions/workflows/check.yml/badge.svg)](https://github.com/rihito-dev/UDC-project-continuity/actions/workflows/check.yml)
+
 Urban Data Challenge（UDC）の受賞プロジェクトについて、**受賞後も公開情報から追跡できるか**を調べる小規模な再現可能調査です。
 
 2014–2025年のUDC公式受賞ページを起点に、公式ページで確認できる公開URL・GitHub・Wayback Machineなどをたどり、現在の公開状態を記録しています。
@@ -16,13 +18,15 @@ Urban Data Challenge（UDC）の受賞プロジェクトについて、**受賞�
 | 受賞記録 | 317 |
 | 明示的な公開URLあり | 68 |
 | GitHub URLあり | 5 |
-| `reachable_related` | 26 |
+| `reachable_related` | 27 |
 | `unreachable` | 13 |
-| `reachable_unrelated` | 13 |
+| `reachable_unrelated` | 12 |
 | `redirected_domain` | 3 |
 | `unknown` | 262 |
 
 317件は「ユニークなプロジェクト数」ではなく、受賞ページから抽出した**受賞記録数**です。同じ作品が複数の賞として掲載されている場合は複数行になることがあります。
+
+2026-09-23 補正: 1件のページタイトルが文字化け（UTF-8をMacRomanとして誤読）していたため、再取得せずにタイトルを復元し、同じ判定ルールで `reachable_unrelated` → `reachable_related` に更新しました。原因となったデコード処理も修正済みです。
 
 ## Research question
 
@@ -80,6 +84,7 @@ scripts/
   collect_udc_projects.py 公式受賞ページの収集と公開状態確認
   explore_udc_urls.py     URL未掲載案件の公式資料内での再探索
   summarize_udc.py        CSVのスナップショット集計
+  check_public_data.py    公開CSVの最小化とREADME件数の整合チェック（CIで実行）
 
 requirements.txt
 README.md
